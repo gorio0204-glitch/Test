@@ -1,0 +1,7 @@
+{
+  "name": "Copy of INS Sales Master",
+  "description": "A specialized reporting tool for insurance sales agents to track deals, calculate commissions, and generate formatted status reports for team updates.",
+  "requestFramePermissions": [
+    "camera"
+  ]
+}
