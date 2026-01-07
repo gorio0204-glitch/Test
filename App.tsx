@@ -179,7 +179,6 @@ const DealForm: React.FC<{
 };
 
 // Generates the text for a single agent report
-// UPDATED: Now filters to ONLY include favorited (starred) deals for the report
 const generateAgentReportText = (s: AgentSummary, today: string) => {
   let text = `*${today}*\n\n`;
   text += `*${s.agentName}*\n`;
@@ -468,18 +467,18 @@ export default function App() {
       const agentDeals = deals.filter(d => d.agentId === agentName);
       const sortedByDate = [...agentDeals].sort((a, b) => new Date(b.dealDate).getTime() - new Date(a.dealDate).getTime());
       
-      const incomeMap = new Map<string, { amount: number, count: number }>();
-      const drawdownMap = new Map<string, { amount: number, count: number }>();
+      const incomeMap = new Map<string, { amount: number, dealCount: number }>();
+      const drawdownMap = new Map<string, { amount: number, dealCount: number }>();
 
       agentDeals.forEach(d => {
-        const income = incomeMap.get(d.issuedMonth) || { amount: 0, count: 0 };
-        incomeMap.set(d.issuedMonth, { amount: income.amount + d.commissionAmount, count: income.count + 1 });
+        const income = incomeMap.get(d.issuedMonth) || { amount: 0, dealCount: 0 };
+        incomeMap.set(d.issuedMonth, { amount: income.amount + d.commissionAmount, dealCount: income.dealCount + 1 });
 
-        const drawdown = drawdownMap.get(d.expectedDrawdownMonth) || { amount: 0, count: 0 };
-        drawdownMap.set(d.expectedDrawdownMonth, { amount: drawdown.amount + d.commissionAmount, count: drawdown.count + 1 });
+        const drawdown = drawdownMap.get(d.expectedDrawdownMonth) || { amount: 0, dealCount: 0 };
+        drawdownMap.set(d.expectedDrawdownMonth, { amount: drawdown.amount + d.commissionAmount, dealCount: drawdown.dealCount + 1 });
       });
 
-      const applyOverrides = (month: string, auto: { amount: number, count: number }, type: 'income' | 'drawdown') => {
+      const applyOverrides = (month: string, auto: { amount: number, dealCount: number }, type: 'income' | 'drawdown'): Omit<MonthlyMetric, 'month'> => {
         const manual = manualMetrics.find(m => m.agentName === agentName && m.month === month && m.type === type);
         if (manual) {
           return { amount: manual.amount, dealCount: manual.dealCount, isManual: true };
@@ -487,13 +486,13 @@ export default function App() {
         return { ...auto, isManual: false };
       };
 
-      const monthlyIncome = MONTHS.map(month => {
-        const auto = incomeMap.get(month) || { amount: 0, count: 0 };
+      const monthlyIncome: MonthlyMetric[] = MONTHS.map(month => {
+        const auto = incomeMap.get(month) || { amount: 0, dealCount: 0 };
         return { month, ...applyOverrides(month, auto, 'income') };
       });
 
-      const expectedDrawdown = MONTHS.map(month => {
-        const auto = drawdownMap.get(month) || { amount: 0, count: 0 };
+      const expectedDrawdown: MonthlyMetric[] = MONTHS.map(month => {
+        const auto = drawdownMap.get(month) || { amount: 0, dealCount: 0 };
         return { month, ...applyOverrides(month, auto, 'drawdown') };
       });
 
@@ -530,7 +529,7 @@ export default function App() {
             commissionAmount: sum * (commPct / 100),
             clientName: d.clientName || 'Unknown Client',
             sumInsured: sum,
-            isFavorited: true // Auto-star AI imported deals as they are usually for the current report
+            isFavorited: true 
           };
         });
         setDeals(prev => [...prev, ...newDeals]);
@@ -672,7 +671,6 @@ export default function App() {
                 </div>
 
                 <div className="space-y-8">
-                  {/* Report Generator with Foldable summaries */}
                   <ReportGenerator summaries={summaries} onResetFavorites={clearAllFavorites} />
                   
                   <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
