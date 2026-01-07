@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
-import { HashRouter, Routes, Route, Link } from 'react-router-dom';
+import { HashRouter, Routes, Route, Link, useNavigate, useParams } from 'react-router-dom';
 import { Deal, Agent, MonthlyMetric, AgentSummary } from './types';
 import { MONTHS, Icons } from './constants';
 import { geminiService } from './services/geminiService';
@@ -26,13 +26,19 @@ const NavBar: React.FC = () => (
   </nav>
 );
 
-const DealForm: React.FC<{ onSave: (deal: Deal) => void }> = ({ onSave }) => {
+const DealForm: React.FC<{ 
+  onSave: (deal: Deal) => void, 
+  initialData?: Deal 
+}> = ({ onSave, initialData }) => {
+  const navigate = useNavigate();
   const [formData, setFormData] = useState<Partial<Deal>>({
     dealDate: new Date().toISOString().split('T')[0],
     pf: false,
     issuedMonth: MONTHS[new Date().getMonth()],
     commissionPercentage: 60,
-    expectedDrawdownMonth: MONTHS[new Date().getMonth()]
+    expectedDrawdownMonth: MONTHS[new Date().getMonth()],
+    salesSubChannel: 'HSV Miki',
+    ...initialData
   });
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -41,16 +47,18 @@ const DealForm: React.FC<{ onSave: (deal: Deal) => void }> = ({ onSave }) => {
 
     const deal: Deal = {
       ...formData as Deal,
-      id: crypto.randomUUID(),
+      id: formData.id || crypto.randomUUID(),
       commissionAmount: (formData.sumInsured || 0) * ((formData.commissionPercentage || 0) / 100)
     };
     onSave(deal);
-    alert('Deal saved successfully!');
+    navigate('/');
   };
 
   return (
     <form onSubmit={handleSubmit} className="bg-white p-6 rounded-xl shadow-sm border border-slate-200 space-y-4">
-      <h2 className="text-xl font-bold text-slate-800 mb-4">New Deal Entry</h2>
+      <h2 className="text-xl font-bold text-slate-800 mb-4">
+        {initialData ? 'Edit Deal' : 'New Deal Entry'}
+      </h2>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div>
           <label className="block text-sm font-medium text-slate-700">Agent Name</label>
@@ -58,6 +66,7 @@ const DealForm: React.FC<{ onSave: (deal: Deal) => void }> = ({ onSave }) => {
             type="text" 
             placeholder="e.g. Joanna"
             className="mt-1 block w-full rounded-md border-slate-300 border p-2 focus:ring-blue-500 focus:border-blue-500"
+            value={formData.agentId || ''}
             onChange={e => setFormData({ ...formData, agentId: e.target.value })}
             required
           />
@@ -67,9 +76,26 @@ const DealForm: React.FC<{ onSave: (deal: Deal) => void }> = ({ onSave }) => {
           <input 
             type="text" 
             className="mt-1 block w-full rounded-md border-slate-300 border p-2"
+            value={formData.clientName || ''}
             onChange={e => setFormData({ ...formData, clientName: e.target.value })}
             required
           />
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-slate-700">Sales (Sub-channel)</label>
+          <input 
+            type="text" 
+            list="sales-options"
+            placeholder="e.g. HSV Miki"
+            className="mt-1 block w-full rounded-md border-slate-300 border p-2 focus:ring-blue-500 focus:border-blue-500"
+            value={formData.salesSubChannel || ''}
+            onChange={e => setFormData({ ...formData, salesSubChannel: e.target.value })}
+          />
+          <datalist id="sales-options">
+            <option value="HSV Miki" />
+            <option value="Direct Sales" />
+            <option value="Referral" />
+          </datalist>
         </div>
         <div>
           <label className="block text-sm font-medium text-slate-700">Deal Date</label>
@@ -86,6 +112,7 @@ const DealForm: React.FC<{ onSave: (deal: Deal) => void }> = ({ onSave }) => {
             type="text" 
             placeholder="e.g. CL 晉裕"
             className="mt-1 block w-full rounded-md border-slate-300 border p-2"
+            value={formData.planName || ''}
             onChange={e => setFormData({ ...formData, planName: e.target.value })}
           />
         </div>
@@ -94,6 +121,7 @@ const DealForm: React.FC<{ onSave: (deal: Deal) => void }> = ({ onSave }) => {
           <input 
             type="number" 
             className="mt-1 block w-full rounded-md border-slate-300 border p-2"
+            value={formData.sumInsured || ''}
             onChange={e => setFormData({ ...formData, sumInsured: Number(e.target.value) })}
             required
           />
@@ -142,7 +170,7 @@ const DealForm: React.FC<{ onSave: (deal: Deal) => void }> = ({ onSave }) => {
         type="submit" 
         className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-lg transition-colors shadow-md"
       >
-        Save Deal
+        {initialData ? 'Update Deal' : 'Save Deal'}
       </button>
     </form>
   );
@@ -161,7 +189,7 @@ const ReportGenerator: React.FC<{ summaries: AgentSummary[] }> = ({ summaries })
         const d = s.recentDeals[0];
         text += `Deal Date: ${d.dealDate}\n`;
         text += `Sales：${d.salesSubChannel || 'HSV Miki'}\n`;
-        text += `Plan: ${d.planName}\n`;
+        text += `Plan: ${d.planName || ''}\n`;
         text += `PF: ${d.pf ? 'Yes' : 'No'}\n`;
         text += `Sum Insured: HKD${d.sumInsured.toLocaleString()}\n`;
         text += `Issued month: ${d.issuedMonth}\n`;
@@ -212,6 +240,24 @@ const ReportGenerator: React.FC<{ summaries: AgentSummary[] }> = ({ summaries })
   );
 };
 
+// --- Page Components ---
+
+const EditDealPage: React.FC<{ deals: Deal[], onSave: (deal: Deal) => void }> = ({ deals, onSave }) => {
+  const { id } = useParams();
+  const deal = deals.find(d => d.id === id);
+
+  if (!deal) return <div className="text-center p-10">Deal not found</div>;
+
+  return (
+    <div className="max-w-2xl mx-auto">
+      <div className="mb-6 flex items-center gap-4">
+        <Link to="/" className="text-slate-500 hover:text-slate-800 transition-colors">← Back to Dashboard</Link>
+      </div>
+      <DealForm onSave={onSave} initialData={deal} />
+    </div>
+  );
+};
+
 // --- Main App ---
 
 export default function App() {
@@ -225,7 +271,15 @@ export default function App() {
     localStorage.setItem('ins-deals', JSON.stringify(deals));
   }, [deals]);
 
-  const addDeal = (deal: Deal) => setDeals(prev => [...prev, deal]);
+  const saveDeal = (deal: Deal) => {
+    setDeals(prev => {
+      const exists = prev.find(d => d.id === deal.id);
+      if (exists) {
+        return prev.map(d => d.id === deal.id ? deal : d);
+      }
+      return [...prev, deal];
+    });
+  };
   
   const removeDeal = (id: string) => {
     if (window.confirm('Are you sure you want to delete this deal?')) {
@@ -275,16 +329,24 @@ export default function App() {
     try {
       const result = await geminiService.parseReport(text);
       if (result.deals && result.deals.length > 0) {
-        const newDeals: Deal[] = result.deals.map((d: any) => ({
-          ...d,
-          id: crypto.randomUUID(),
-          agentId: d.agentName,
-          dealDate: d.dealDate || new Date().toISOString().split('T')[0],
-          pf: d.pf || false,
-          issuedMonth: d.issuedMonth || 'Jan',
-          expectedDrawdownMonth: d.issuedMonth || 'Jan',
-          salesSubChannel: d.salesSubChannel || 'HSV Miki'
-        }));
+        const newDeals: Deal[] = result.deals.map((d: any) => {
+          const sum = Number(d.sumInsured) || 0;
+          const commPct = Number(d.commissionPercentage) || 60;
+          return {
+            ...d,
+            id: crypto.randomUUID(),
+            agentId: d.agentName || 'Joanna',
+            dealDate: d.dealDate || new Date().toISOString().split('T')[0],
+            pf: d.pf || false,
+            issuedMonth: d.issuedMonth || MONTHS[new Date().getMonth()],
+            expectedDrawdownMonth: d.issuedMonth || MONTHS[new Date().getMonth()],
+            salesSubChannel: d.salesSubChannel || 'HSV Miki',
+            commissionPercentage: commPct,
+            commissionAmount: sum * (commPct / 100),
+            clientName: d.clientName || 'Unknown Client',
+            sumInsured: sum
+          };
+        });
         setDeals(prev => [...prev, ...newDeals]);
         alert(`Successfully imported ${newDeals.length} deals!`);
       }
@@ -343,10 +405,10 @@ export default function App() {
                         <thead>
                           <tr className="bg-slate-50 text-slate-500 text-xs uppercase tracking-wider font-semibold">
                             <th className="px-6 py-3">Agent</th>
+                            <th className="px-6 py-3">Sales / Sub</th>
                             <th className="px-6 py-3">Client</th>
-                            <th className="px-6 py-3">Date</th>
                             <th className="px-6 py-3">Sum Insured</th>
-                            <th className="px-6 py-3">Comm %</th>
+                            <th className="px-6 py-3">Date</th>
                             <th className="px-6 py-3">Action</th>
                           </tr>
                         </thead>
@@ -357,19 +419,33 @@ export default function App() {
                             </tr>
                           )}
                           {deals.slice().reverse().map(deal => (
-                            <tr key={deal.id} className="hover:bg-slate-50 transition-colors">
-                              <td className="px-6 py-4 font-medium text-slate-800">{deal.agentId}</td>
-                              <td className="px-6 py-4 text-slate-600">{deal.clientName}</td>
-                              <td className="px-6 py-4 text-slate-500 text-sm">{deal.dealDate}</td>
-                              <td className="px-6 py-4 font-semibold">HKD {deal.sumInsured.toLocaleString()}</td>
-                              <td className="px-6 py-4 text-slate-600">{deal.commissionPercentage}%</td>
+                            <tr key={deal.id} className="hover:bg-slate-50 transition-colors group">
                               <td className="px-6 py-4">
-                                <button 
-                                  onClick={() => removeDeal(deal.id)}
-                                  className="text-red-400 hover:text-red-600 transition-colors p-1"
-                                >
-                                  <Icons.Trash />
-                                </button>
+                                <div className="font-medium text-slate-800">{deal.agentId}</div>
+                                <div className="text-xs text-slate-400">{deal.planName}</div>
+                              </td>
+                              <td className="px-6 py-4 text-slate-600 text-sm font-medium">{deal.salesSubChannel}</td>
+                              <td className="px-6 py-4 text-slate-600 font-medium">{deal.clientName}</td>
+                              <td className="px-6 py-4">
+                                <div className="font-semibold text-slate-900">HKD {deal.sumInsured.toLocaleString()}</div>
+                                <div className="text-xs text-slate-500">{deal.issuedMonth} Issued</div>
+                              </td>
+                              <td className="px-6 py-4 text-slate-500 text-sm">{deal.dealDate}</td>
+                              <td className="px-6 py-4">
+                                <div className="flex items-center gap-3">
+                                  <Link 
+                                    to={`/edit/${deal.id}`}
+                                    className="text-slate-400 hover:text-blue-600 transition-colors p-1"
+                                  >
+                                    <Icons.Edit />
+                                  </Link>
+                                  <button 
+                                    onClick={() => removeDeal(deal.id)}
+                                    className="text-slate-400 hover:text-red-600 transition-colors p-1"
+                                  >
+                                    <Icons.Trash />
+                                  </button>
+                                </div>
                               </td>
                             </tr>
                           ))}
@@ -385,9 +461,9 @@ export default function App() {
                   <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
                     <h3 className="font-bold text-slate-800 mb-4">Tips for Reporting</h3>
                     <ul className="text-sm text-slate-600 space-y-3 list-disc pl-4">
-                      <li>Use the <strong>AI Import</strong> feature to quickly sync with your existing WhatsApp/Telegram logs.</li>
-                      <li>Monthly Income aggregates by <strong>Issued Month</strong>.</li>
-                      <li>Drawdown totals aggregate by <strong>Expected Drawdown</strong> field.</li>
+                      <li>Use <strong>AI Import</strong> to sync logs. It now detects custom "Sales" values.</li>
+                      <li>You can <strong>Edit</strong> existing deals using the pencil icon.</li>
+                      <li>The <strong>Sales</strong> field supports custom entries and provides common suggestions.</li>
                       <li>The copy button provides the exact format requested for team updates.</li>
                     </ul>
                   </div>
@@ -399,9 +475,10 @@ export default function App() {
                 <div className="mb-6 flex items-center gap-4">
                   <Link to="/" className="text-slate-500 hover:text-slate-800 transition-colors">← Back to Dashboard</Link>
                 </div>
-                <DealForm onSave={addDeal} />
+                <DealForm onSave={saveDeal} />
               </div>
             } />
+            <Route path="/edit/:id" element={<EditDealPage deals={deals} onSave={saveDeal} />} />
           </Routes>
         </main>
       </div>

@@ -11,7 +11,9 @@ export class GeminiService {
   async parseReport(text: string) {
     const response = await this.ai.models.generateContent({
       model: "gemini-3-flash-preview",
-      contents: `Parse the following insurance sales report into a structured JSON format. 
+      contents: `Extract insurance deal information from the following text into JSON. 
+      Pay special attention to the "Sales" field (e.g., Sales: HSV Miki) and the "Agent" (usually the bold name at the top).
+      
       Text: "${text}"`,
       config: {
         responseMimeType: "application/json",
@@ -23,15 +25,14 @@ export class GeminiService {
               items: {
                 type: Type.OBJECT,
                 properties: {
-                  agentName: { type: Type.STRING },
-                  dealDate: { type: Type.STRING },
-                  salesSubChannel: { type: Type.STRING },
-                  planName: { type: Type.STRING },
-                  pf: { type: Type.BOOLEAN },
-                  sumInsured: { type: Type.NUMBER },
-                  issuedMonth: { type: Type.STRING },
+                  agentName: { type: Type.STRING, description: "The person name associated with the deal, often Joanna or similar." },
+                  dealDate: { type: Type.STRING, description: "YYYY/MM/DD format" },
+                  salesSubChannel: { type: Type.STRING, description: "The value following 'Sales：'" },
+                  planName: { type: Type.STRING, description: "The insurance plan name" },
+                  pf: { type: Type.BOOLEAN, description: "True if PF is Yes" },
+                  sumInsured: { type: Type.NUMBER, description: "The numeric value of Sum Insured" },
+                  issuedMonth: { type: Type.STRING, description: "The month name like Jan, Feb..." },
                   commissionPercentage: { type: Type.NUMBER },
-                  commissionAmount: { type: Type.NUMBER },
                   clientName: { type: Type.STRING }
                 },
                 required: ["agentName", "sumInsured"]
