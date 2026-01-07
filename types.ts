@@ -12,6 +12,7 @@ export interface Deal {
   commissionAmount: number;
   clientName: string;
   expectedDrawdownMonth: string;
+  isFavorited?: boolean;
 }
 
 export interface Agent {
@@ -21,6 +22,15 @@ export interface Agent {
 
 export interface MonthlyMetric {
   month: string;
+  amount: number;
+  dealCount: number;
+  isManual?: boolean;
+}
+
+export interface ManualMetric {
+  agentName: string;
+  month: string;
+  type: 'income' | 'drawdown';
   amount: number;
   dealCount: number;
 }
