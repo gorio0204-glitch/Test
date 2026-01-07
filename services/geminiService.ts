@@ -1,6 +1,12 @@
 
 import { GoogleGenAI, Type } from "@google/genai";
 
+declare var process: {
+  env: {
+    API_KEY: string;
+  }
+};
+
 export class GeminiService {
   private ai: GoogleGenAI;
 
